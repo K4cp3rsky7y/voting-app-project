@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ title }}</h1>
+            <p class="subtitle">Który klub jest lepszy? Real Madrid czy FC Barcelona?</p>
+        </header>
+
+        <main>
+            <div class="voting-section">
+                <h2>Wybierz swoją opcję:</h2>
+                <div class="vote-buttons">
+                    <button class="vote-btn vote-btn-1" onclick="vote('{{ option1 }}')">
+                        <span class="vote-icon">⚪</span>
+                        <span class="vote-text">{{ option1 }}</span>
+                    </button>
+                    <button class="vote-btn vote-btn-2" onclick="vote('{{ option2 }}')">
+                        <span class="vote-icon">🔵🔴</span>
+                        <span class="vote-text">{{ option2 }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h2>Wyniki głosowania</h2>
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-label">{{ option1 }}</div>
+                        <div class="stat-value" id="vote1">{{ vote1 }}</div>
+                        <div class="stat-bar">
+                            <div class="stat-bar-fill" id="bar1" style="width: {{ (vote1 / total * 100) if total > 0 else 0 }}%"></div>
+                        </div>
+                        <div class="stat-percentage" id="perc1">{{ "%.1f"|format((vote1 / total * 100) if total > 0 else 0) }}%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">{{ option2 }}</div>
+                        <div class="stat-value" id="vote2">{{ vote2 }}</div>
+                        <div class="stat-bar">
+                            <div class="stat-bar-fill" id="bar2" style="width: {{ (vote2 / total * 100) if total > 0 else 0 }}%"></div>
+                        </div>
+                        <div class="stat-percentage" id="perc2">{{ "%.1f"|format((vote2 / total * 100) if total > 0 else 0) }}%</div>
+                    </div>
+                </div>
+                <div class="total-votes">
+                    <strong>Łączna liczba głosów: <span id="total">{{ total }}</span></strong>
+                </div>
+            </div>
+
+            <div class="actions-section">
+                <button class="reset-btn" onclick="resetVotes()">Resetuj głosy</button>
+                <button class="refresh-btn" onclick="refreshStats()">Odśwież statystyki</button>
+            </div>
+        </main>
+
+        <footer>
+            <p>Technologie: Flask | Redis | RabbitMQ | Docker</p>
+        </footer>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function vote(option) {
+            const formData = new FormData();
+            formData.append('vote', option);
+
+            fetch('/vote', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateStats(data);
+                    showNotification(`Dziękujemy za głos na ${option}!`, 'success');
+                } else {
+                    showNotification('Wystąpił błąd podczas głosowania', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Wystąpił błąd połączenia', 'error');
+            });
+        }
+
+        function resetVotes() {
+            if (!confirm('Czy na pewno chcesz zresetować wszystkie głosy?')) {
+                return;
+            }
+
+            fetch('/reset', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    refreshStats();
+                    showNotification('Głosy zostały zresetowane', 'success');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Wystąpił błąd podczas resetowania', 'error');
+            });
+        }
+
+        function refreshStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    updateStats(data);
+                    showNotification('Statystyki zaktualizowane', 'success');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Wystąpił błąd podczas odświeżania', 'error');
+                });
+        }
+
+        function updateStats(data) {
+            document.getElementById('vote1').textContent = data.vote1;
+            document.getElementById('vote2').textContent = data.vote2;
+            document.getElementById('total').textContent = data.total;
+            
+            const total = data.total || 1;
+            const perc1 = ((data.vote1 / total) * 100).toFixed(1);
+            const perc2 = ((data.vote2 / total) * 100).toFixed(1);
+            
+            document.getElementById('bar1').style.width = perc1 + '%';
+            document.getElementById('bar2').style.width = perc2 + '%';
+            document.getElementById('perc1').textContent = perc1 + '%';
+            document.getElementById('perc2').textContent = perc2 + '%';
+        }
+
+        // Auto-refresh co 5 sekund
+        setInterval(refreshStats, 5000);
+    </script>
+</body>
+</html>

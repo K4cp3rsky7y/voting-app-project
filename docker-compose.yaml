@@ -1,0 +1,81 @@
+services:
+  # Redis - przechowywanie danych głosowania
+  redis:
+    image: redis:7-alpine
+    container_name: voting-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voting-network
+    restart: unless-stopped
+
+  # RabbitMQ - kolejka wiadomości do asynchronicznego przetwarzania
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: voting-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP port
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voting-network
+    restart: unless-stopped
+
+  # Aplikacja Flask
+  web:
+    build: .
+    container_name: voting-app
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: admin
+      RABBITMQ_PASSWORD: admin123
+      RABBITMQ_QUEUE: votes
+      VOTE_OPTION_1: Real
+      VOTE_OPTION_2: Barca
+      APP_TITLE: Real vs Barca - Głosowanie
+    ports:
+      - "5000:5000"
+    networks:
+      - voting-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
+
+networks:
+  voting-network:
+    driver: bridge
