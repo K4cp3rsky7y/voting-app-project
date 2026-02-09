@@ -18,11 +18,13 @@
                 <h2>Wybierz swoją opcję:</h2>
                 <div class="vote-buttons">
                     <button class="vote-btn vote-btn-1" onclick="vote('{{ option1 }}')">
-                        <span class="vote-icon">⚪</span>
+                        <img src="{{ url_for('static', filename='images/real-madrid-logo.png') }}" alt="Real Madrid" class="team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <span class="vote-icon" style="display:none;">⚪</span>
                         <span class="vote-text">{{ option1 }}</span>
                     </button>
                     <button class="vote-btn vote-btn-2" onclick="vote('{{ option2 }}')">
-                        <span class="vote-icon">🔵🔴</span>
+                        <img src="{{ url_for('static', filename='images/barcelona-logo.png') }}" alt="FC Barcelona" class="team-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <span class="vote-icon" style="display:none;">🔵🔴</span>
                         <span class="vote-text">{{ option2 }}</span>
                     </button>
                 </div>
@@ -32,7 +34,10 @@
                 <h2>Wyniki głosowania</h2>
                 <div class="stats-container">
                     <div class="stat-card">
-                        <div class="stat-label">{{ option1 }}</div>
+                        <div class="stat-label">
+                            <img src="{{ url_for('static', filename='images/real-madrid-logo.png') }}" alt="Real Madrid" class="stat-logo" onerror="this.style.display='none';">
+                            <span>{{ option1 }}</span>
+                        </div>
                         <div class="stat-value" id="vote1">{{ vote1 }}</div>
                         <div class="stat-bar">
                             <div class="stat-bar-fill" id="bar1" style="width: {{ (vote1 / total * 100) if total > 0 else 0 }}%"></div>
@@ -40,7 +45,10 @@
                         <div class="stat-percentage" id="perc1">{{ "%.1f"|format((vote1 / total * 100) if total > 0 else 0) }}%</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">{{ option2 }}</div>
+                        <div class="stat-label">
+                            <img src="{{ url_for('static', filename='images/barcelona-logo.png') }}" alt="FC Barcelona" class="stat-logo" onerror="this.style.display='none';">
+                            <span>{{ option2 }}</span>
+                        </div>
                         <div class="stat-value" id="vote2">{{ vote2 }}</div>
                         <div class="stat-bar">
                             <div class="stat-bar-fill" id="bar2" style="width: {{ (vote2 / total * 100) if total > 0 else 0 }}%"></div>

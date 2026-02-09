@@ -76,6 +76,11 @@ main {
     align-items: center;
     gap: 10px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.vote-btn img {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .vote-btn-1 {
@@ -103,6 +108,13 @@ main {
 
 .vote-icon {
     font-size: 3em;
+}
+
+.team-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 10px;
 }
 
 .vote-text {
@@ -142,6 +154,16 @@ main {
     margin-bottom: 15px;
     color: #333;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.stat-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
 }
 
 .stat-value {
