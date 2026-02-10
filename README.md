@@ -242,6 +242,7 @@ Worker automatycznie przetwarza wiadomości z kolejki i aktualizuje dane w Redis
 
 ## 👥 Autorzy
 Kacper Chłopek
+Szymon Piechocki
 ## 📄 Licencja
 
 Ten projekt został stworzony na potrzeby zaliczenia przedmiotu "Projektowanie aplikacji internetowych".
