@@ -246,15 +246,3 @@ Szymon Piechocki
 ## 📄 Licencja
 
 Ten projekt został stworzony na potrzeby zaliczenia przedmiotu "Projektowanie aplikacji internetowych".
-
-## 🎯 Prezentacja
-
-Prezentacja projektu obejmuje:
-- Demonstrację działania aplikacji
-- Omówienie architektury
-- Prezentację wykorzystanych technologii
-- Pokaz interfejsu RabbitMQ Management UI
-
----
-
-**Uwaga**: Projekt jest gotowy do prezentacji i zawiera wszystkie wymagane elementy zgodnie z wytycznymi zaliczenia.
