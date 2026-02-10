@@ -241,9 +241,7 @@ python app/worker.py
 Worker automatycznie przetwarza wiadomości z kolejki i aktualizuje dane w Redis. W podstawowej konfiguracji aplikacja Flask przetwarza głosy synchronicznie, ale worker może być użyty do bardziej zaawansowanych scenariuszy (np. logowanie, analityka, powiadomienia).
 
 ## 👥 Autorzy
-
-Projekt zaliczeniowy - Zespół 2-3 osobowy
-
+Kacper Chłopek
 ## 📄 Licencja
 
 Ten projekt został stworzony na potrzeby zaliczenia przedmiotu "Projektowanie aplikacji internetowych".
