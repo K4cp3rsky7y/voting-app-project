@@ -54,15 +54,30 @@ except redis.ConnectionError as e:
     logger.error(f"Błąd połączenia z Redis: {e}")
     redis_client = None
 
-# Inicjalizacja wartości w Redis
+RECENT_VOTES_KEY = "recent_votes"
+FAN_MESSAGES_KEY = "fan_messages"
+MAX_RECENT_VOTES = 20
+MAX_FAN_MESSAGES = 50
+
+
 def init_redis():
-    """Inicjalizuje wartości głosów w Redis jeśli nie istnieją"""
-    if redis_client:
-        if not redis_client.exists(VOTE_OPTION_1):
-            redis_client.set(VOTE_OPTION_1, 0)
-        if not redis_client.exists(VOTE_OPTION_2):
-            redis_client.set(VOTE_OPTION_2, 0)
-        logger.info("Zainicjalizowano wartości w Redis")
+    """Inicjalizuje wartości głosów i struktur pomocniczych w Redis jeśli nie istnieją"""
+    if not redis_client:
+        return
+
+    # Liczniki głosów
+    if not redis_client.exists(VOTE_OPTION_1):
+        redis_client.set(VOTE_OPTION_1, 0)
+    if not redis_client.exists(VOTE_OPTION_2):
+        redis_client.set(VOTE_OPTION_2, 0)
+
+    # Listy pomocnicze
+    if not redis_client.exists(RECENT_VOTES_KEY):
+        redis_client.delete(RECENT_VOTES_KEY)
+    if not redis_client.exists(FAN_MESSAGES_KEY):
+        redis_client.delete(FAN_MESSAGES_KEY)
+
+    logger.info("Zainicjalizowano wartości w Redis")
 
 # Funkcja do wysyłania głosu do RabbitMQ
 def send_vote_to_queue(vote_option, timestamp):
@@ -110,6 +125,16 @@ def process_vote(vote_option):
     if redis_client:
         try:
             redis_client.incr(vote_option)
+
+            # Zapamiętaj ostatni głos (lista ograniczona do MAX_RECENT_VOTES)
+            vote_entry = {
+                "option": vote_option,
+                "timestamp": datetime.now().isoformat(),
+                "ip": request.remote_addr,
+            }
+            redis_client.lpush(RECENT_VOTES_KEY, json.dumps(vote_entry))
+            redis_client.ltrim(RECENT_VOTES_KEY, 0, MAX_RECENT_VOTES - 1)
+
             logger.info(f"Zaktualizowano głos dla '{vote_option}'")
             return True
         except Exception as e:
@@ -124,9 +149,28 @@ def index():
         init_redis()
         vote1 = int(redis_client.get(VOTE_OPTION_1) or 0)
         vote2 = int(redis_client.get(VOTE_OPTION_2) or 0)
+        # Początkowe dane do wyświetlenia ostatnich głosów i ściany kibica
+        recent_votes_raw = redis_client.lrange(RECENT_VOTES_KEY, 0, MAX_RECENT_VOTES - 1)
+        fan_messages_raw = redis_client.lrange(FAN_MESSAGES_KEY, 0, MAX_FAN_MESSAGES - 1)
+
+        recent_votes = []
+        for item in recent_votes_raw:
+            try:
+                recent_votes.append(json.loads(item))
+            except json.JSONDecodeError:
+                continue
+
+        fan_messages = []
+        for item in fan_messages_raw:
+            try:
+                fan_messages.append(json.loads(item))
+            except json.JSONDecodeError:
+                continue
     else:
         vote1 = 0
         vote2 = 0
+        recent_votes = []
+        fan_messages = []
     
     return render_template(
         'index.html',
@@ -135,7 +179,9 @@ def index():
         option2=VOTE_OPTION_2,
         vote1=vote1,
         vote2=vote2,
-        total=vote1 + vote2
+        total=vote1 + vote2,
+        recent_votes=recent_votes,
+        fan_messages=fan_messages,
     )
 
 @app.route('/vote', methods=['POST'])
@@ -176,6 +222,7 @@ def reset():
     if redis_client:
         redis_client.set(VOTE_OPTION_1, 0)
         redis_client.set(VOTE_OPTION_2, 0)
+        redis_client.delete(RECENT_VOTES_KEY)
         logger.info("Zresetowano głosy")
     
     return jsonify({'success': True, 'message': 'Głosy zostały zresetowane'})
@@ -199,6 +246,73 @@ def stats():
         })
     else:
         return jsonify({'error': 'Redis nie jest dostępny'}), 500
+
+
+@app.route('/api/recent_votes', methods=['GET'])
+def recent_votes():
+    """Zwraca listę ostatnich głosów"""
+    if not redis_client:
+        return jsonify({'error': 'Redis nie jest dostępny'}), 500
+
+    items = redis_client.lrange(RECENT_VOTES_KEY, 0, MAX_RECENT_VOTES - 1)
+    votes = []
+    for item in items:
+        try:
+            votes.append(json.loads(item))
+        except json.JSONDecodeError:
+            continue
+
+    return jsonify(votes)
+
+
+@app.route('/fan-message', methods=['POST'])
+def fan_message():
+    """Dodaje wiadomość kibica do ściany"""
+    if not redis_client:
+        return jsonify({'error': 'Redis nie jest dostępny'}), 500
+
+    name = request.form.get('name', '').strip() or 'Anonim'
+    message = request.form.get('message', '').strip()
+    team = request.form.get('team', '').strip()
+
+    if not message:
+        return jsonify({'error': 'Wiadomość nie może być pusta'}), 400
+
+    if team not in [VOTE_OPTION_1, VOTE_OPTION_2]:
+        return jsonify({'error': 'Nieprawidłowy klub'}), 400
+
+    entry = {
+        'name': name,
+        'message': message,
+        'team': team,
+        'timestamp': datetime.now().isoformat(),
+    }
+
+    try:
+        redis_client.lpush(FAN_MESSAGES_KEY, json.dumps(entry))
+        redis_client.ltrim(FAN_MESSAGES_KEY, 0, MAX_FAN_MESSAGES - 1)
+        logger.info(f"Dodano wiadomość kibica dla '{team}'")
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Błąd zapisu wiadomości kibica: {e}")
+        return jsonify({'error': 'Nie udało się zapisać wiadomości'}), 500
+
+
+@app.route('/api/fan_messages', methods=['GET'])
+def fan_messages_api():
+    """Zwraca listę wiadomości kibiców"""
+    if not redis_client:
+        return jsonify({'error': 'Redis nie jest dostępny'}), 500
+
+    items = redis_client.lrange(FAN_MESSAGES_KEY, 0, MAX_FAN_MESSAGES - 1)
+    messages = []
+    for item in items:
+        try:
+            messages.append(json.loads(item))
+        except json.JSONDecodeError:
+            continue
+
+    return jsonify(messages)
 
 @app.route('/health', methods=['GET'])
 def health():

@@ -61,6 +61,60 @@
                 </div>
             </div>
 
+            <div class="extra-sections">
+                <section class="recent-votes-section">
+                    <h2>Ostatnie głosy</h2>
+                    <p class="section-desc">Na żywo pokazujemy ostatnie oddane głosy.</p>
+                    <ul id="recent-votes-list" class="recent-votes-list">
+                        {% for vote in recent_votes %}
+                            <li class="recent-vote-item">
+                                <span class="recent-vote-team">
+                                    {{ vote.option }}
+                                </span>
+                                <span class="recent-vote-meta">
+                                    {{ vote.timestamp.split('T')[0] }} {{ vote.timestamp.split('T')[1][:8] }}
+                                </span>
+                            </li>
+                        {% else %}
+                            <li class="recent-vote-empty">Brak głosów – bądź pierwszym kibicem!</li>
+                        {% endfor %}
+                    </ul>
+                </section>
+
+                <section class="fan-wall-section">
+                    <h2>Ściana kibica</h2>
+                    <p class="section-desc">Zostaw krótką wiadomość, komu kibicujesz i dlaczego.</p>
+
+                    <form id="fan-form" class="fan-form" onsubmit="submitFanMessage(event)">
+                        <div class="fan-form-row">
+                            <input type="text" name="name" placeholder="Twoje imię (opcjonalnie)">
+                            <select name="team">
+                                <option value="{{ option1 }}">{{ option1 }}</option>
+                                <option value="{{ option2 }}">{{ option2 }}</option>
+                            </select>
+                        </div>
+                        <textarea name="message" rows="3" maxlength="200" placeholder="Twoja wiadomość (max 200 znaków)" required></textarea>
+                        <button type="submit" class="fan-submit-btn">Wyślij wiadomość</button>
+                    </form>
+
+                    <ul id="fan-messages-list" class="fan-messages-list">
+                        {% for msg in fan_messages %}
+                            <li class="fan-message-item">
+                                <div class="fan-message-header">
+                                    <span class="fan-message-name">{{ msg.name or 'Anonim' }}</span>
+                                    <span class="fan-message-team">{{ msg.team }}</span>
+                                </div>
+                                <div class="fan-message-body">
+                                    {{ msg.message }}
+                                </div>
+                            </li>
+                        {% else %}
+                            <li class="fan-message-empty">Napisz pierwszą wiadomość na ścianie kibica!</li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            </div>
+
             <div class="actions-section">
                 <button class="reset-btn" onclick="resetVotes()">Resetuj głosy</button>
                 <button class="refresh-btn" onclick="refreshStats()">Odśwież statystyki</button>
@@ -133,6 +187,8 @@
                 .then(response => response.json())
                 .then(data => {
                     updateStats(data);
+                    loadRecentVotes();
+                    loadFanMessages();
                     showNotification('Statystyki zaktualizowane', 'success');
                 })
                 .catch(error => {
@@ -156,7 +212,118 @@
             document.getElementById('perc2').textContent = perc2 + '%';
         }
 
+        function loadRecentVotes() {
+            fetch('/api/recent_votes')
+                .then(response => response.json())
+                .then(votes => {
+                    const list = document.getElementById('recent-votes-list');
+                    list.innerHTML = '';
+
+                    if (!votes.length) {
+                        const li = document.createElement('li');
+                        li.className = 'recent-vote-empty';
+                        li.textContent = 'Brak głosów – bądź pierwszym kibicem!';
+                        list.appendChild(li);
+                        return;
+                    }
+
+                    votes.forEach(vote => {
+                        const li = document.createElement('li');
+                        li.className = 'recent-vote-item';
+
+                        const teamSpan = document.createElement('span');
+                        teamSpan.className = 'recent-vote-team';
+                        teamSpan.textContent = vote.option;
+
+                        const metaSpan = document.createElement('span');
+                        metaSpan.className = 'recent-vote-meta';
+                        if (vote.timestamp) {
+                            const [date, time] = vote.timestamp.split('T');
+                            metaSpan.textContent = `${date} ${time.slice(0, 8)}`;
+                        } else {
+                            metaSpan.textContent = '';
+                        }
+
+                        li.appendChild(teamSpan);
+                        li.appendChild(metaSpan);
+                        list.appendChild(li);
+                    });
+                })
+                .catch(err => console.error('recent_votes error', err));
+        }
+
+        function loadFanMessages() {
+            fetch('/api/fan_messages')
+                .then(response => response.json())
+                .then(messages => {
+                    const list = document.getElementById('fan-messages-list');
+                    list.innerHTML = '';
+
+                    if (!messages.length) {
+                        const li = document.createElement('li');
+                        li.className = 'fan-message-empty';
+                        li.textContent = 'Napisz pierwszą wiadomość na ścianie kibica!';
+                        list.appendChild(li);
+                        return;
+                    }
+
+                    messages.forEach(msg => {
+                        const li = document.createElement('li');
+                        li.className = 'fan-message-item';
+
+                        const header = document.createElement('div');
+                        header.className = 'fan-message-header';
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'fan-message-name';
+                        nameSpan.textContent = msg.name || 'Anonim';
+
+                        const teamSpan = document.createElement('span');
+                        teamSpan.className = 'fan-message-team';
+                        teamSpan.textContent = msg.team;
+
+                        header.appendChild(nameSpan);
+                        header.appendChild(teamSpan);
+
+                        const body = document.createElement('div');
+                        body.className = 'fan-message-body';
+                        body.textContent = msg.message;
+
+                        li.appendChild(header);
+                        li.appendChild(body);
+                        list.appendChild(li);
+                    });
+                })
+                .catch(err => console.error('fan_messages error', err));
+        }
+
+        function submitFanMessage(event) {
+            event.preventDefault();
+            const form = document.getElementById('fan-form');
+            const formData = new FormData(form);
+
+            fetch('/fan-message', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Wiadomość została dodana na ścianę kibica!', 'success');
+                        form.reset();
+                        loadFanMessages();
+                    } else {
+                        showNotification(data.error || 'Nie udało się dodać wiadomości', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Wystąpił błąd podczas wysyłania wiadomości', 'error');
+                });
+        }
+
         // Auto-refresh co 5 sekund
+        refreshStats();
         setInterval(refreshStats, 5000);
     </script>
 </body>
